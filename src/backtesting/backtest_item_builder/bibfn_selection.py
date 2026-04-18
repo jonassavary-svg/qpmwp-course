@@ -175,6 +175,40 @@ def bibfn_selection_min_volume(bs, rebdate: str, **kwargs) -> pd.DataFrame:
 
 
 
+def bibfn_selection_min_volume(bs, rebdate: str, **kwargs) -> pd.DataFrame:
+
+    '''
+    Backtest item builder function for defining the selection
+    Filter stocks based on minimum volume (i.e., liquidity).
+    '''
+
+    # Arguments
+    width = kwargs.get('width', 365)
+    agg_fn = kwargs.get('agg_fn', np.median)
+    min_volume = kwargs.get('min_volume', 500_000)
+
+    # Volume data
+    vol = bs.data.get_volume_series(
+        end_date=rebdate,
+        width=width,
+        weekdays_only=True,
+        fillna_value=0,
+    )
+    vol_agg = vol.apply(agg_fn)
+
+    # Filtering
+    binary = (vol_agg >= min_volume).astype(int)
+
+    # Output
+    filter_values = pd.DataFrame({
+        'values': vol_agg,
+        'binary': binary,
+    }, index=vol_agg.index)
+
+    return filter_values
+
+
+
 def bibfn_selection_jkp_data_scores(bs, rebdate: str, **kwargs) -> pd.DataFrame:
 
     '''

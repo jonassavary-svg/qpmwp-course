@@ -47,6 +47,7 @@ sys.path.append(src_path)
 from helper_functions import (
     load_pickle,
     load_data_spi,
+    load_local_parquet,
 )
 from estimation.covariance import Covariance
 from estimation.expected_return import ExpectedReturn
@@ -82,8 +83,8 @@ from backtesting.backtest import Backtest
 # Constants
 # --------------------------------------------------------------------------
 
-PATH_TO_DATA = '...'     # <change this to your path to data>
-SAVE_PATH = '...'        # <change this to your path where you want to store the backtest>
+PATH_TO_DATA = '/Users/jonassavary/Desktop/Cours python/qpmwp-course/data'     # <change this to your path to data>
+SAVE_PATH = '/Users/jonassavary/Desktop/Cours python/qpmwp-course'        # <change this to your path where you want to store the backtest>
 WIDTH_3Y = 365 * 3       # Notice that we use 365 days bcs the dataset also contains weekends and holidays
 
 
@@ -98,8 +99,8 @@ WIDTH_3Y = 365 * 3       # Notice that we use 365 days bcs the dataset also cont
 
 
 # Load market and jkp data from parquet files
-market_data = pd.read_parquet(path = f'{PATH_TO_DATA}market_data.parquet')
-jkp_data = pd.read_parquet(path = f'{PATH_TO_DATA}jkp_data.parquet')
+market_data = load_local_parquet('market_data.parquet', path=PATH_TO_DATA)
+jkp_data = load_local_parquet('jkp_data.parquet', path=PATH_TO_DATA)
 
 
 # Inspect the data
@@ -570,6 +571,5 @@ sharpe  = pd.DataFrame(sharpe_ratio, index=['Sharpe Ratio'])
 mdd = pd.DataFrame(max_drawdown, index=['Max Drawdown'])
 tracking_error = pd.DataFrame(tracking_error, index=['Tracking Error'])
 pd.concat([annual_returns, cumret, annual_volatility, sharpe, mdd, tracking_error])
-
 
 

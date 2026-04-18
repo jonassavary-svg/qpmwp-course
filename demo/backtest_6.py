@@ -38,6 +38,7 @@ sys.path.append(src_path)
 from helper_functions import (
     load_pickle,
     load_data_spi,
+    load_local_parquet,
 )
 from estimation.covariance import Covariance
 from optimization.optimization import ScoreVariance              # NEW
@@ -86,8 +87,8 @@ WIDTH_3Y = 365 * 3
 
 
 # Load market and jkp data from parquet files
-market_data = pd.read_parquet(path = f'{PATH_TO_DATA}market_data.parquet')
-jkp_data = pd.read_parquet(path = f'{PATH_TO_DATA}jkp_data.parquet')
+market_data = load_local_parquet('market_data.parquet', path=PATH_TO_DATA)
+jkp_data = load_local_parquet('jkp_data.parquet', path=PATH_TO_DATA)
 
 list(jkp_data.columns)
 
@@ -366,6 +367,5 @@ sharpe  = pd.DataFrame(sharpe_ratio, index=['Sharpe Ratio'])
 mdd = pd.DataFrame(max_drawdown, index=['Max Drawdown'])
 tracking_error = pd.DataFrame(tracking_error, index=['Tracking Error'])
 pd.concat([annual_returns, cumret, annual_volatility, sharpe, mdd, tracking_error])
-
 
 

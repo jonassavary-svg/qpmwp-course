@@ -12,6 +12,7 @@
 # Standard library imports
 import os
 import pickle
+from pathlib import Path
 from typing import Optional, Union, Any
 
 # Third party imports
@@ -67,6 +68,45 @@ def load_data_spi(path: Optional[str] = None) -> pd.Series:
                         date_format='%d/%m/%Y')
     df.index = pd.DatetimeIndex(df.index)
     return df.squeeze()
+
+
+def load_local_parquet(filename: str, path: Optional[str] = None) -> pd.DataFrame:
+    """
+    Load a parquet file from a local project path and surface a clearer error when
+    only an iCloud placeholder is present.
+    """
+
+    filename = filename.rstrip("/\\")
+    project_root = Path(__file__).resolve().parent.parent
+
+    candidates = []
+    if path is not None:
+        candidates.append(Path(path).expanduser() / filename)
+    candidates.append(project_root / filename)
+    candidates.append(project_root / "data" / filename)
+
+    seen = set()
+    for candidate in candidates:
+        candidate = candidate.resolve()
+        if candidate in seen:
+            continue
+        seen.add(candidate)
+
+        if candidate.is_file():
+            return pd.read_parquet(candidate)
+
+        placeholder = candidate.parent / f".{candidate.name}.icloud"
+        if placeholder.is_file():
+            raise FileNotFoundError(
+                f"{candidate} is not downloaded locally. "
+                f"An iCloud placeholder exists at {placeholder}. "
+                "Download the parquet file from iCloud first, then rerun the notebook."
+            )
+
+    searched = ", ".join(str(path) for path in seen)
+    raise FileNotFoundError(
+        f"Could not find {filename}. Looked in: {searched}"
+    )
 
 
 

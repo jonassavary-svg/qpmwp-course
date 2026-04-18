@@ -67,7 +67,7 @@ from backtesting.backtest_item_builder_functions import (
 # --------------------------------------------------------------------------
 
 N = 24
-data = load_data_msci(path='../data/', n=N)
+data = load_data_msci(path='/Users/jonassavary/Projects/qpmwp-course/data/', n=N)
 data
 
 

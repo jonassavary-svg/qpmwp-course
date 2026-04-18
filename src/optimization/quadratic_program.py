@@ -114,6 +114,187 @@ class QuadraticProgram():
         '''
         self._results.update(value)
 
+    @staticmethod
+    def _to_dense_array(value):
+        if value is None:
+            return None
+        if spa.issparse(value):
+            return value.toarray()
+        return np.asarray(value, dtype=float)
+
+    def _turnover_linearization_data(self,
+                                     x_init: np.ndarray) -> tuple:
+        x_init = np.asarray(x_init, dtype=float).reshape(-1)
+        q_x = np.asarray(self.problem_data.get('q'), dtype=float).reshape(-1)
+        n = q_x.shape[0]
+
+        if x_init.shape[0] != n:
+            raise ValueError('x_init must have the same length as q.')
+
+        P_x = self._to_dense_array(self.problem_data.get('P'))
+        G_x = self._to_dense_array(self.problem_data.get('G'))
+        A_x = self._to_dense_array(self.problem_data.get('A'))
+        h_x = self.problem_data.get('h')
+        lb_x = self.problem_data.get('lb')
+        ub_x = self.problem_data.get('ub')
+
+        if G_x is not None and G_x.ndim == 1:
+            G_x = G_x.reshape(1, -1)
+        if A_x is not None and A_x.ndim == 1:
+            A_x = A_x.reshape(1, -1)
+
+        zeros_nn = np.zeros((n, n))
+        zeros_n = np.zeros(n)
+        eye_n = np.eye(n)
+
+        P = None
+        if P_x is not None:
+            P = np.block([
+                [P_x, zeros_nn],
+                [zeros_nn, zeros_nn],
+            ])
+
+        A = None
+        if A_x is not None:
+            A = np.hstack([A_x, np.zeros((A_x.shape[0], n))])
+
+        if lb_x is None:
+            lb_x = np.full(n, -np.inf)
+        else:
+            lb_x = np.asarray(lb_x, dtype=float).reshape(-1)
+
+        if ub_x is None:
+            ub_x = np.full(n, np.inf)
+        else:
+            ub_x = np.asarray(ub_x, dtype=float).reshape(-1)
+
+        G_blocks = []
+        h_blocks = []
+        if G_x is not None:
+            G_blocks.append(np.hstack([G_x, np.zeros((G_x.shape[0], n))]))
+            h_blocks.append(np.asarray(h_x, dtype=float).reshape(-1))
+
+        return (
+            x_init,
+            n,
+            q_x,
+            P,
+            A,
+            lb_x,
+            ub_x,
+            G_blocks,
+            h_blocks,
+            zeros_n,
+            eye_n,
+        )
+
+    def linearize_turnover_constraint(self,
+                                      x_init: np.ndarray,
+                                      to_budget: float = float('inf')) -> None:
+        '''
+        Linearize an L1 turnover constraint with one auxiliary variable per asset.
+
+        The original constraint
+            sum_i |x_i - x_init_i| <= to_budget
+        is replaced by auxiliary variables u >= 0 such that
+            x - u <= x_init
+           -x - u <= -x_init
+            1'u <= to_budget
+
+        The optimization variable is therefore augmented from x in R^n to
+        z = [x, u] in R^(2n).
+        '''
+        if not np.isfinite(to_budget):
+            return None
+
+        (
+            x_init,
+            n,
+            q_x,
+            P,
+            A,
+            lb_x,
+            ub_x,
+            G_blocks,
+            h_blocks,
+            zeros_n,
+            eye_n,
+        ) = self._turnover_linearization_data(x_init)
+
+        q = np.concatenate([q_x, zeros_n])
+        G_blocks.extend([
+            np.hstack([eye_n, -eye_n]),
+            np.hstack([-eye_n, -eye_n]),
+            np.hstack([np.zeros((1, n)), np.ones((1, n))]),
+        ])
+        h_blocks.extend([
+            x_init,
+            -x_init,
+            np.array([to_budget], dtype=float),
+        ])
+
+        self.update_problem_data({
+            'P': P,
+            'q': q,
+            'G': np.vstack(G_blocks),
+            'h': np.concatenate(h_blocks),
+            'A': A,
+            'lb': np.concatenate([lb_x, zeros_n]),
+            'ub': np.concatenate([ub_x, np.full(n, np.inf)]),
+        })
+        return None
+
+    def linearize_turnover_objective(self,
+                                     x_init: np.ndarray,
+                                     turnover_penalty: float = 0.002) -> None:
+        '''
+        Linearize an L1 turnover penalty with one auxiliary variable per asset.
+
+        The original penalty
+            turnover_penalty * sum_i |x_i - x_init_i|
+        is replaced by auxiliary variables u >= 0 such that
+            x - u <= x_init
+           -x - u <= -x_init
+
+        The optimization variable is therefore augmented from x in R^n to
+        z = [x, u] in R^(2n), and the linear term is extended by
+        turnover_penalty * 1'u.
+        '''
+        (
+            x_init,
+            n,
+            q_x,
+            P,
+            A,
+            lb_x,
+            ub_x,
+            G_blocks,
+            h_blocks,
+            zeros_n,
+            eye_n,
+        ) = self._turnover_linearization_data(x_init)
+
+        q = np.concatenate([
+            q_x,
+            np.full(n, turnover_penalty, dtype=float),
+        ])
+        G_blocks.extend([
+            np.hstack([eye_n, -eye_n]),
+            np.hstack([-eye_n, -eye_n]),
+        ])
+        h_blocks.extend([x_init, -x_init])
+
+        self.update_problem_data({
+            'P': P,
+            'q': q,
+            'G': np.vstack(G_blocks),
+            'h': np.concatenate(h_blocks),
+            'A': A,
+            'lb': np.concatenate([lb_x, zeros_n]),
+            'ub': np.concatenate([ub_x, np.full(n, np.inf)]),
+        })
+        return None
+
     def solve(self) -> None:
         '''
         Solve the quadratic programming problem using the specified solver.
@@ -264,185 +445,3 @@ class QuadraticProgram():
         q = self.problem_data['q']
 
         return (0.5 * (x @ P @ x) + q @ x).item() + constant
-
-    def linearize_turnover_constraint(self, x_init: np.ndarray, to_budget=float('inf')) -> None:
-        '''
-        Linearize the turnover constraint in the quadratic programming problem.
-
-        This method modifies the quadratic programming problem to include a linearized turnover constraint.
-
-        Parameters:
-        -----------
-        x_init : np.ndarray
-            The initial portfolio weights.
-        to_budget : float, optional
-            The maximum allowable turnover. Defaults to float('inf').
-
-        Notes:
-        ------
-        - The method updates the problem's objective function coefficients, inequality constraints,
-        equality constraints, and bounds to account for the turnover constraint.
-        - The original problem data is overridden with the updated matrices and vectors.
-
-        Examples:
-        ---------
-        >>> qp = QuadraticProgram(P, q, G, h, A, b, lb, ub, solver='cvxopt')
-        >>> qp.linearize_turnover_constraint(x_init=np.array([0.1, 0.2, 0.3]), to_budget=0.05)
-        '''
-        # Dimensions
-        n = len(self.problem_data.get('q'))
-        m = 0 if self.problem_data.get('G') is None else self.problem_data.get('G').shape[0]
-
-        # Coefficients of the objective function
-        P = (
-            np.pad(self.problem_data['P'], (0, n))
-            if self.problem_data.get('P') is not None
-            else None
-        )
-        q = (
-            np.pad(self.problem_data['q'], (0, n))
-            if self.problem_data.get('q') is not None
-            else None
-        )
-
-        # Inequality constraints
-        G = np.zeros(shape=(m + 2 * n + 1, 2 * n))
-        if self.problem_data.get('G') is not None:
-            G[0:m, 0:n] = self.problem_data.get('G')
-        G[m:(m + n), 0:n] = np.eye(n)
-        G[m:(m + n), n:(2 * n)] = np.eye(n) * (-1)
-        G[(m + n):(m + 2 * n), 0:n] = np.eye(n) * (-1)
-        G[(m + n):(m + 2 * n), n:(2 * n)] = np.eye(n) * (-1)
-        G[(m + 2 * n),] = np.append(np.zeros(n), np.ones(n))
-        h = (
-            self.problem_data.get('h')
-            if self.problem_data.get('h') is not None
-            else np.empty(shape=(0,))
-        )
-        h = np.append(h, np.append(np.append(x_init, -x_init), to_budget))
-
-        # Equality constraints
-        if self.problem_data.get('A') is not None:
-            if len(self.problem_data['A'].shape) == 1:
-                A = np.pad(self.problem_data['A'], (0, n))
-            else:
-                A = np.pad(self.problem_data['A'], ((0, 0), (0, n)))
-        else:
-            A = None
-
-        # Lower and upper bounds
-        lb = (
-            np.pad(self.problem_data['lb'], (0, n))
-            if self.problem_data.get('lb') is not None
-            else None
-        )
-        ub = (
-            np.pad(self.problem_data['ub'], (0, n), constant_values=float('inf'))
-            if self.problem_data.get('ub') is not None
-            else None
-        )
-
-        # Override the original matrices (notice: b does not change)
-        self.update_problem_data({
-            'P': P,
-            'q': q,
-            'G': G,
-            'h': h,
-            'A': A,
-            'lb': lb,
-            'ub': ub
-        })
-
-        return None
-
-    def linearize_turnover_objective(self,
-                                     x_init: np.ndarray,
-                                     turnover_penalty=0.002) -> None:
-        '''
-        Linearize the turnover objective in the quadratic programming problem.
-
-        This method modifies the quadratic programming problem to include a 
-        linearized turnover penalty term in the objective.
-
-        Parameters:
-        -----------
-        x_init : np.ndarray
-            The initial portfolio weights.
-        turnover_penalty : float, optional
-            The transaction cost penalty per unit of turnover. Defaults to 0.002.
-
-        Notes:
-        ------
-        - The method updates the problem's objective function coefficients, inequality constraints,
-        equality constraints, and bounds to account for the turnover objective.
-        - The original problem data is overridden with the updated matrices and vectors.
-
-        Examples:
-        ---------
-        >>> qp = QuadraticProgram(P, q, G, h, A, b, lb, ub, solver='cvxopt')
-        >>> qp.linearize_turnover_objective(x_init=np.array([0.1, 0.2, 0.3]), turnover_penalty=0.002)
-        '''
-        # Dimensions
-        n = len(self.problem_data.get('q'))
-        m = 0 if self.problem_data.get('G') is None else self.problem_data.get('G').shape[0]
-
-        # Coefficients of the objective function
-        P = (
-            np.pad(self.problem_data['P'], (0, n))
-            if self.problem_data.get('P') is not None
-            else None
-        )
-        q = (
-            np.pad(self.problem_data['q'], (0, n), constant_values=turnover_penalty)
-            if self.problem_data.get('q') is not None
-            else None
-        )
-
-        # Inequality constraints
-        G = np.zeros(shape=(m + 2 * n, 2 * n))
-        if self.problem_data.get('G') is not None:
-            G[0:m, 0:n] = self.problem_data.get('G')
-        G[m:(m + n), 0:n] = np.eye(n)
-        G[m:(m + n), n:(2 * n)] = -np.eye(n)
-        G[(m + n):(m + 2 * n), 0:n] = -np.eye(n)
-        G[(m + n):(m + 2 * n), n:(2 * n)] = -np.eye(n)
-        h = (
-            self.problem_data.get('h')
-            if self.problem_data.get('h') is not None
-            else np.empty(shape=(0,))
-        )
-        h = np.append(h, np.append(x_init, -x_init))
-
-        # Equality constraints
-        if self.problem_data.get('A') is not None:
-            if len(self.problem_data['A'].shape) == 1:
-                A = np.pad(self.problem_data['A'], (0, n))
-            else:
-                A = np.pad(self.problem_data['A'], ((0, 0), (0, n)))
-        else:
-            A = None
-
-        # Lower and upper bounds
-        lb = (
-            np.pad(self.problem_data['lb'], (0, n))
-            if self.problem_data.get('lb') is not None
-            else None
-        )
-        ub = (
-            np.pad(self.problem_data['ub'], (0, n), constant_values=float('inf'))
-            if self.problem_data.get('ub') is not None
-            else None
-        )
-
-        # Override the original matrices (notice: b does not change)
-        self.update_problem_data({
-            'P': P,
-            'q': q,
-            'G': G,
-            'h': h,
-            'A': A,
-            'lb': lb,
-            'ub': ub,
-        })
-
-        return None

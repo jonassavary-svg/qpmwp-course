@@ -224,13 +224,32 @@ class LeastSquares(Optimization):
 
         X = optimization_data['return_series']
         y = optimization_data['bm_series']
+        if isinstance(y, pd.DataFrame):
+            if y.shape[1] != 1:
+                raise ValueError(
+                    "LeastSquares expects 'bm_series' to be a Series or a single-column DataFrame."
+                )
+            y = y.iloc[:, 0]
+
+        common_index = X.index.intersection(y.index)
+        if len(common_index) == 0:
+            raise ValueError(
+                "LeastSquares requires overlapping dates between 'return_series' and 'bm_series'."
+            )
+
+        X = X.loc[common_index]
+        y = y.loc[common_index]
+
         if self.params.get('log_transform'):
             X = np.log(1 + X)
             y = np.log(1 + y)
 
-        P = 2 * (X.T @ X)
-        q = to_numpy(-2 * X.T @ y).reshape((-1,))
-        constant = to_numpy(y.T @ y).item()
+        X_np = to_numpy(X)
+        y_np = to_numpy(y).reshape((-1, 1))
+
+        P = 2 * (X_np.T @ X_np)
+        q = (-2 * X_np.T @ y_np).reshape((-1,))
+        constant = float((y_np.T @ y_np).item())
 
         l2_penalty = self.params.get('l2_penalty')
         if l2_penalty is not None and l2_penalty != 0:

@@ -60,7 +60,8 @@ from backtesting.backtest_item_builder_functions import (
 # --------------------------------------------------------------------------
 
 N = 10
-data = load_data_msci(path='../data/', n=N)
+data = load_data_msci(path='/Users/jonassavary/Projects/qpmwp-course/data/',
+    n=N)
 data
 
 
@@ -85,13 +86,13 @@ covariance = Covariance(method='pearson')
 # Instantiate the class
 constraints = Constraints(ids = data['return_series'].columns.tolist())
 
-# Add budget constraint
+# Add budget constraint -> somme des poids = 1
 constraints.add_budget(rhs=1, sense='=')
 
-# Add box constraints (i.e., lower and upper bounds)
+# Add box constraints (i.e., lower and upper bounds) -> minimum 0% et maximum 50& pour chaque actif
 constraints.add_box(lower=0, upper=0.5)
 
-# Add linear constraints
+# Add linear constraints -> on ne limite pas qu'un seul actif mais aussi plusieurs actifs ensemble à un maximum et minimum. Max pour investir dans certains groupes d'actifs
 G = pd.DataFrame(np.zeros((2, N)), columns=constraints.ids)
 G.iloc[0, 0:5] = 1
 G.iloc[1, 6:10] = 1
@@ -115,7 +116,8 @@ constraints.linear
 # Initiate the optimization object
 # --------------------------------------------------------------------------
 
-# Instantiate the optimization object as an instance of MeanVariance
+# Instantiate the optimization object as an instance of MeanVariance -> optimisation des poids des actifs selon leur return et leur covariance (meilleure compromis entre return et risk)
+#il faut bien regarder risk aversion -> à quel point on déteste le risque donc plus le chiffre est grand, plus on déteste le risque. 
 optimization = MeanVariance(
     covariance=covariance,
     expected_return=expected_return,
@@ -133,7 +135,7 @@ optimization = MeanVariance(
 # Prepare the backtest service
 # --------------------------------------------------------------------------
 
-# Define rebalancing dates
+# Define rebalancing dates -> dates de rebalancement qui sont environ tous les 3 mois (on reafit l'allocation du portefeuille tous les 3 mois)
 n_days = 21 * 3
 start_date = '2010-01-01'
 dates = data['return_series'].index
@@ -153,7 +155,7 @@ rebdates
 # The function bibfn takes the backtest service (bs) and the rebalancing date (rebdate) as arguments.
 # Additional keyword arguments can be passed to bibfn using the arguments attribute of the
 # OptimizationItemBuilder instance.
-
+#à chaque fois qu'on fait le rebalancement, on ne regarde que les 3 dernières années
 optimization_item_builders = {
     'return_series': OptimizationItemBuilder(
         bibfn=bibfn_return_series,
@@ -214,6 +216,7 @@ bs.optimization.constraints.box
 bs.optimization.constraints.linear
 
 # Inspect the optimization results - i.e. the weights stored in the strategy object
+#crée un groahique qui montre les poids que l'optimisation à choisi pour les assets pour chaque rebalancing de dates. on voit que le portfeuille est très concentré sur 3 assets. 
 bt_mv.strategy.get_weights_df()
 bt_mv.strategy.get_weights_df().plot(
     kind='bar', stacked=True, figsize=(10, 6),
@@ -229,7 +232,8 @@ bt_mv.strategy.get_weights_df().plot(
 # --------------------------------------------------------------------------
 # Simulation
 # --------------------------------------------------------------------------
-
+#règles: Tous les 3 mois, en regardant seulement les 3 dernières années de rendements, calcule le portefeuille mean-variance sous ces contraintes, puis garde ce portefeuille jusqu’au prochain rebalancement.
+#la simulation applique notre règle d'allocation tous les 3 mois en regardant à chaqeu fois les 3 dernières années. on regarde les 3 dernières années on décide les poids on applique ces poids pendant 3 mois puis on recommence
 fixed_costs = 0
 variable_costs = 0
 return_series = bs.data['return_series']
@@ -250,8 +254,7 @@ sim.columns = sim.columns.get_level_values(0)
 (1 + sim).cumprod().plot(title='Cumulative Performance', figsize= (10, 6))
 # np.log((1 + sim)).cumsum().plot(title='Cumulative Performance', figsize=(10, 6))
 # np.log((1 + sim).cumprod()).plot(title='Cumulative Performance', figsize=(10, 6))
-
-
+#on remarque que sur toute la période, le benchmark a augmenté mais la stratégie a fait mieux. 
 
 # Out-/Underperformance
 
@@ -295,6 +298,11 @@ print(f'Cumulative Returns: {cumulative_returns.iloc[-1]}')
 print(f'Sharpe Ratio: {sharpe_ratio}')
 print(f'Max Drawdown: {max_drawdown}')
 print(f'Alpha: {alpha_beta[0]}, Beta: {alpha_beta[1]}')
+
+#11.43% en return en moyenne par an
+#Cumulative Returns: 3.431137571746893 -> performance totale cumulée = +343%
+#Sharpe Ratio: 0.8910999662858952 -> on veut un sharpe ratio pour avoir plus de return que de risque (+ que 1 si possible)
+#Max Drawdown: -0.3089031764617854 -> c'est la plus grosse baisse qui a eu lieu (-30%)
 
 
 

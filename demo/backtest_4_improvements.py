@@ -79,8 +79,8 @@ from backtesting.backtest import Backtest
 # Constants
 # --------------------------------------------------------------------------
 
-PATH_TO_DATA = '...'     # <change this to your path to data>
-SAVE_PATH = '...'        # <change this to your path where you want to store the backtest>
+PATH_TO_DATA = '/Users/jonassavary/Projects/qpmwp-course/'     # <change this to your path to data>
+SAVE_PATH = '/Users/jonassavary/Projects/qpmwp-course/'        # <change this to your path where you want to store the backtest>
 WIDTH_3Y = 365 * 3       # Notice that we use 365 days bcs the dataset also contains weekends and holidays
 
 
@@ -95,8 +95,8 @@ WIDTH_3Y = 365 * 3       # Notice that we use 365 days bcs the dataset also cont
 
 
 # Load market and jkp data from parquet files
-market_data = pd.read_parquet(path = f'{PATH_TO_DATA}market_data.parquet')
-jkp_data = pd.read_parquet(path = f'{PATH_TO_DATA}jkp_data.parquet')
+market_data = pd.read_parquet(path = f'/Users/jonassavary/Projects/qpmwp-course/market_data.parquet')
+jkp_data = pd.read_parquet(path = f'/Users/jonassavary/Projects/qpmwp-course/jkp_data.parquet')
 
 
 
@@ -242,7 +242,7 @@ bs = BacktestService(
 #     covariance=Covariance(method='pearson'),
 #     expected_return=ExpectedReturn(method='geometric'),
 #     risk_aversion=1,
-#     solver_name='cvxopt',
+#     solver_name='osqp',
 # )
 
 # # Instantiate the backtest object and run the backtest
@@ -275,7 +275,7 @@ bs.optimization = MeanVariance(
     covariance=Covariance(method='pearson'),
     expected_return=ExpectedReturn(method='geometric'),
     risk_aversion=risk_aversion,
-    solver_name='cvxopt',
+    solver_name='osqp',
 )
 
 # Instantiate the backtest object and run the backtest
@@ -312,7 +312,7 @@ bs = BacktestService(
         covariance=Covariance(method='pearson'),
         expected_return=ExpectedReturn(method='geometric'),
         risk_aversion=risk_aversion,
-        solver_name='cvxopt',
+        solver_name='osqp',
     ),
     selection_item_builders=selection_item_builders,
     optimization_item_builders=optimization_item_builders,
@@ -354,22 +354,28 @@ def bibfn_selection_min_volume(bs, rebdate: str, **kwargs) -> pd.DataFrame:
 
     # Arguments
     width = kwargs.get('width', 365)
-    agg_fn = # <your code here>
-    min_volume = # <your code here>
+    agg_fn = kwargs.get('agg_fn', np.median)
+    min_volume = kwargs.get('min_volume', 500_000)
 
-    # Volume data
+     # Volume data
     vol = bs.data.get_volume_series(
-        # <your code here>
+        end_date=rebdate,
+        width=width,
+        weekdays_only=True,
+        fillna_value=0,
     )
-    vol_agg = # <your code here>
+    vol_agg = vol.apply(agg_fn)
 
     # Filtering
-    # <your code here>
+    binary = (vol_agg >= min_volume).astype(int)
 
     # Output
-    # <your code here>
-    
-    return filter_values
+    filter_values = pd.DataFrame({
+        'values': vol_agg,
+        'binary': binary,
+    }, index=vol_agg.index)
+
+    return filter_value
 
 
 # Add the minimum volume filter to the selection_item_builders dictionary
@@ -389,7 +395,7 @@ bs = BacktestService(
         covariance=Covariance(method='pearson'),
         expected_return=ExpectedReturn(method='geometric'),
         risk_aversion=risk_aversion,
-        solver_name='cvxopt',
+        solver_name='osqp',
     ),
     selection_item_builders=selection_item_builders,
     optimization_item_builders=optimization_item_builders,
@@ -438,7 +444,7 @@ bs = BacktestService(
         covariance=Covariance(method = 'pearson'),
         expected_return=ExpectedReturn(method = 'geometric'),
         risk_aversion=risk_aversion,
-        solver_name='cvxopt',
+        solver_name='osqp',
     ),
     selection_item_builders=selection_item_builders,
     optimization_item_builders=optimization_item_builders,
