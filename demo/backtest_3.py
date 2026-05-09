@@ -67,7 +67,7 @@ from backtesting.backtest_item_builder_functions import (
 # --------------------------------------------------------------------------
 
 N = 24
-data = load_data_msci(path='/Users/jonassavary/Projects/qpmwp-course/data/', n=N)
+data = load_data_msci(path='/Users/jonassavary/Desktop/qpmwp-course/data/', n=N)
 data
 
 
@@ -341,7 +341,6 @@ annual_volatility = pd.DataFrame(annual_volatility, index=['Annual Volatility'])
 sharpe  = pd.DataFrame(sharpe_ratio, index=['Sharpe Ratio'])
 mdd = pd.DataFrame(max_drawdown, index=['Max Drawdown'])
 pd.concat([annual_returns, cumret, annual_volatility, sharpe, mdd])
-
 
 
 

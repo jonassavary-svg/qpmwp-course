@@ -79,8 +79,8 @@ from backtesting.backtest import Backtest
 # Constants
 # --------------------------------------------------------------------------
 
-PATH_TO_DATA = '/Users/jonassavary/Projects/qpmwp-course/'     # <change this to your path to data>
-SAVE_PATH = '/Users/jonassavary/Projects/qpmwp-course/'        # <change this to your path where you want to store the backtest>
+PATH_TO_DATA = '/Users/jonassavary/Desktop/qpmwp-course/'     # <change this to your path to data>
+SAVE_PATH = '/Users/jonassavary/Desktop/qpmwp-course/'        # <change this to your path where you want to store the backtest>
 WIDTH_3Y = 365 * 3       # Notice that we use 365 days bcs the dataset also contains weekends and holidays
 
 
@@ -95,8 +95,8 @@ WIDTH_3Y = 365 * 3       # Notice that we use 365 days bcs the dataset also cont
 
 
 # Load market and jkp data from parquet files
-market_data = pd.read_parquet(path = f'/Users/jonassavary/Projects/qpmwp-course/market_data.parquet')
-jkp_data = pd.read_parquet(path = f'/Users/jonassavary/Projects/qpmwp-course/jkp_data.parquet')
+market_data = pd.read_parquet(path = f'/Users/jonassavary/Desktop/qpmwp-course/market_data.parquet')
+jkp_data = pd.read_parquet(path = f'/Users/jonassavary/Desktop/qpmwp-course/jkp_data.parquet')
 
 
 
@@ -621,6 +621,5 @@ sharpe  = pd.DataFrame(sharpe_ratio, index=['Sharpe Ratio'])
 mdd = pd.DataFrame(max_drawdown, index=['Max Drawdown'])
 tracking_error = pd.DataFrame(tracking_error, index=['Tracking Error'])
 pd.concat([annual_returns, cumret, annual_volatility, sharpe, mdd, tracking_error])
-
 
 

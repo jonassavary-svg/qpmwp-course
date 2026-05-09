@@ -60,8 +60,7 @@ from backtesting.backtest_item_builder_functions import (
 # --------------------------------------------------------------------------
 
 N = 10
-data = load_data_msci(path='/Users/jonassavary/Projects/qpmwp-course/data/',
-    n=N)
+data = load_data_msci(path=os.path.join(project_root, 'data', ''), n=N)
 data
 
 
@@ -385,9 +384,6 @@ sim.columns = sim.columns.get_level_values(0)
 (1 + sim).cumprod().plot(title='Cumulative Performance', figsize= (10, 6))
 # np.log((1 + sim)).cumsum().plot(title='Cumulative Performance', figsize=(10, 6))
 # np.log((1 + sim).cumprod()).plot(title='Cumulative Performance', figsize=(10, 6))
-
-
-
 
 
 

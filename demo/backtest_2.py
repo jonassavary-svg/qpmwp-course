@@ -57,7 +57,7 @@ from backtesting.backtest import Backtest
 # --------------------------------------------------------------------------
 
 N = 24
-data = load_data_msci(path='/Users/jonassavary/Projects/qpmwp-course/data/', n=N)
+data = load_data_msci(path=os.path.join(project_root, 'data', ''), n=N)
 data
 
 
@@ -338,9 +338,6 @@ sharpe  = pd.DataFrame(sharpe_ratio, index=['Sharpe Ratio'])
 mdd = pd.DataFrame(max_drawdown, index=['Max Drawdown'])
 tracking_error = pd.DataFrame(tracking_error, index=['Tracking Error'])
 pd.concat([annual_returns, cumret, annual_volatility, sharpe, mdd, tracking_error])
-
-
-
 
 
 
