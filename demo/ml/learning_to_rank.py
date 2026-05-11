@@ -270,7 +270,7 @@ else:
         CrossSectionalWinsorize(lower=0.01, upper=0.99),
         CrossSectionalPercentiles(n_bins=10),
     ])
-    y_deciles = label_pipeline2.fit_transform(y)    
+    y_deciles = label_pipeline2.fit_transform(y)
 
     # Concatenate the transformed labels into a single DataFrame
     y = pd.concat([
